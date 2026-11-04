@@ -407,6 +407,8 @@
     }
     .result-breakdown .wrong-count { color: var(--red); }
     .result-breakdown strong { font-variant-numeric: tabular-nums; }
+    .best-score { margin: 0 0 12px; color: var(--muted); font-size: 14px; }
+    .best-score strong { color: var(--text); font-variant-numeric: tabular-nums; }
     .replay-prompt {
       margin: 0 0 12px;
       color: var(--text);
@@ -492,6 +494,7 @@
         <span aria-hidden="true">·</span>
         <span class="wrong-count">오답 <strong id="wrong-count">0</strong>개</span>
       </p>
+      <p class="best-score">최고 기록 <strong id="best-score">0</strong> / 10점</p>
       <p class="replay-prompt">다시 풀어보시겠습니까?</p>
       <div><button class="next-button" id="restart-button" type="button">네, 다시 풀기 <span aria-hidden="true">↻</span></button></div>
     </section>
@@ -515,6 +518,20 @@
     let current = 0;
     let score = 0;
     let answered = false;
+    const bestScoreKey = "space-quiz-ict-best-score";
+    function loadBestScore() {
+      try {
+        const storedScore = localStorage.getItem(bestScoreKey);
+        if (storedScore === null) return null;
+        const parsedScore = Number(storedScore);
+        return Number.isInteger(parsedScore) && parsedScore >= 0 && parsedScore <= questions.length
+          ? parsedScore
+          : null;
+      } catch {
+        return null;
+      }
+    }
+    let bestScore = loadBestScore();
     const questionNumber = document.querySelector("#question-number");
     const progress = document.querySelector(".progress-track");
     const progressFill = document.querySelector("#progress-fill");
@@ -598,6 +615,14 @@
       document.querySelector("#final-score").textContent = String(score);
       document.querySelector("#correct-count").textContent = String(score);
       document.querySelector("#wrong-count").textContent = String(questions.length - score);
+      if (bestScore === null || score > bestScore) {
+        bestScore = score;
+        try {
+          localStorage.setItem(bestScoreKey, String(bestScore));
+        } catch {
+        }
+      }
+      document.querySelector("#best-score").textContent = String(bestScore);
       const result = score === 10
         ? ["🏆", "우주 최고 탐험가!", "완벽한 점수예요! 우주의 모든 비밀을 꿰뚫고 있군요."]
         : score >= 7
