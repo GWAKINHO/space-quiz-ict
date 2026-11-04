@@ -512,6 +512,7 @@
       { category: "우주 · 탐사", question: "태양계를 벗어나 성간 공간에 도달한 최초의 탐사선은?", choices: ["보이저 1호", "파이오니어 10호", "뉴허라이즌스", "보이저 2호"], answer: 0, fact: "보이저 1호는 2012년 성간 공간에 진입했어요. 지금도 신호를 보내고 있답니다." }
     ];
 
+    let questionOrder = [...questions];
     let current = 0;
     let score = 0;
     let answered = false;
@@ -525,6 +526,14 @@
     const nextButton = document.querySelector("#next-button");
     const scoreEl = document.querySelector("#score");
 
+    function shuffleQuestions() {
+      questionOrder = [...questions];
+      for (let i = questionOrder.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [questionOrder[i], questionOrder[j]] = [questionOrder[j], questionOrder[i]];
+      }
+    }
+
     function focusControl(element) {
       document.querySelectorAll(".keyboard-focused").forEach(control => {
         control.classList.remove("keyboard-focused");
@@ -536,7 +545,7 @@
     }
 
     function renderQuestion() {
-      const item = questions[current];
+      const item = questionOrder[current];
       answered = false;
       questionNumber.textContent = String(current + 1).padStart(2, "0");
       progressFill.style.width = `${(current / questions.length) * 100}%`;
@@ -564,7 +573,7 @@
     function selectAnswer(selected) {
       if (answered) return;
       answered = true;
-      const item = questions[current];
+      const item = questionOrder[current];
       const buttons = [...answersEl.querySelectorAll(".answer")];
       buttons.forEach(button => {
         button.disabled = true;
@@ -630,6 +639,7 @@
       scoreEl.textContent = "0";
       document.querySelector("#result-card").hidden = true;
       document.querySelector("#quiz-card").hidden = false;
+      shuffleQuestions();
       renderQuestion();
       focusControl(questionEl);
     });
@@ -656,6 +666,7 @@
       }
     });
 
+    shuffleQuestions();
     renderQuestion();
   </script>
 </body>
