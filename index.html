@@ -407,6 +407,21 @@
     }
     .result-breakdown .wrong-count { color: var(--red); }
     .result-breakdown strong { font-variant-numeric: tabular-nums; }
+    .wrong-review {
+      max-height: 240px;
+      overflow-y: auto;
+      margin: 0 0 20px;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--surface-soft);
+      text-align: left;
+    }
+    .wrong-review h2 { margin: 0 0 10px; font-size: 15px; }
+    .wrong-review ol { margin: 0; padding-left: 22px; }
+    .wrong-review li + li { margin-top: 10px; }
+    .wrong-review p { margin: 0; color: var(--muted); font-size: 13px; }
+    .wrong-review strong { color: var(--green); }
     .replay-prompt {
       margin: 0 0 12px;
       color: var(--text);
@@ -414,6 +429,7 @@
       font-weight: 700;
     }
     .result .next-button { min-width: 170px; }
+    .result-actions { display: flex; flex-direction: column; align-items: center; gap: 9px; }
     [hidden] { display: none !important; }
 
     @keyframes shake {
@@ -461,11 +477,11 @@
   <main class="quiz" aria-label="우주 탐험 퀴즈">
     <header class="topline">
       <div class="brand"><span class="brand-mark" aria-hidden="true">🪐</span><span>ORBIT QUIZ</span></div>
-      <div class="score-pill" aria-live="polite"><span aria-hidden="true">✦</span> 점수 <strong id="score">0</strong><span>/ 10</span></div>
+      <div class="score-pill" aria-live="polite"><span aria-hidden="true">✦</span> 점수 <strong id="score">0</strong><span>/ <span id="score-total">10</span></span></div>
     </header>
 
     <section class="card" id="quiz-card" aria-live="polite">
-      <div class="progress-meta"><span>탐험 진행도</span><span><strong id="question-number">01</strong> / 10</span></div>
+      <div class="progress-meta"><span>탐험 진행도</span><span><strong id="question-number">01</strong> / <span id="question-total">10</span></span></div>
       <div class="progress-track" role="progressbar" aria-label="퀴즈 진행도" aria-valuemin="0" aria-valuemax="10" aria-valuenow="0">
         <div class="progress-fill" id="progress-fill"></div>
       </div>
@@ -486,14 +502,21 @@
       <p class="eyebrow">탐험 완료</p>
       <h1 id="result-title">멋진 여정이었어요!</h1>
       <p class="result-copy" id="result-copy"></p>
-      <div class="result-score"><strong id="final-score">0</strong><span>/ 10 정답</span></div>
+      <div class="result-score"><strong id="final-score">0</strong><span>/ <span id="result-total">10</span> 정답</span></div>
       <p class="result-breakdown" aria-live="polite">
         <span>정답 <strong id="correct-count">0</strong>개</span>
         <span aria-hidden="true">·</span>
         <span class="wrong-count">오답 <strong id="wrong-count">0</strong>개</span>
       </p>
+      <section class="wrong-review" id="wrong-review" aria-label="오답 문항" hidden>
+        <h2>다시 확인할 오답</h2>
+        <ol id="wrong-questions"></ol>
+      </section>
       <p class="replay-prompt">다시 풀어보시겠습니까?</p>
-      <div><button class="next-button" id="restart-button" type="button">네, 다시 풀기 <span aria-hidden="true">↻</span></button></div>
+      <div class="result-actions">
+        <button class="next-button" id="review-button" type="button" hidden>오답만 다시 풀기</button>
+        <button class="next-button" id="restart-button" type="button">네, 다시 풀기 <span aria-hidden="true">↻</span></button>
+      </div>
     </section>
     <p class="footer-note">별을 따라, 우주의 신비를 발견해 보세요 ✨</p>
   </main>
@@ -512,6 +535,8 @@
       { category: "우주 · 탐사", question: "태양계를 벗어나 성간 공간에 도달한 최초의 탐사선은?", choices: ["보이저 1호", "파이오니어 10호", "뉴허라이즌스", "보이저 2호"], answer: 0, fact: "보이저 1호는 2012년 성간 공간에 진입했어요. 지금도 신호를 보내고 있답니다." }
     ];
 
+    let roundQuestions = questions;
+    let wrongQuestions = [];
     let current = 0;
     let score = 0;
     let answered = false;
@@ -536,10 +561,10 @@
     }
 
     function renderQuestion() {
-      const item = questions[current];
+      const item = roundQuestions[current];
       answered = false;
       questionNumber.textContent = String(current + 1).padStart(2, "0");
-      progressFill.style.width = `${(current / questions.length) * 100}%`;
+      progressFill.style.width = `${(current / roundQuestions.length) * 100}%`;
       progress.setAttribute("aria-valuenow", String(current));
       categoryEl.textContent = item.category;
       questionEl.textContent = item.question;
@@ -564,7 +589,7 @@
     function selectAnswer(selected) {
       if (answered) return;
       answered = true;
-      const item = questions[current];
+      const item = roundQuestions[current];
       const buttons = [...answersEl.querySelectorAll(".answer")];
       buttons.forEach(button => {
         button.disabled = true;
@@ -577,12 +602,15 @@
         feedbackEl.textContent = `정답이에요! ${item.fact}`;
         feedbackEl.classList.add("good");
       } else {
+        wrongQuestions.push(item);
         buttons[selected].classList.add("wrong");
         buttons[item.answer].classList.add("reveal");
         feedbackEl.textContent = `아쉬워요! ${item.fact}`;
         feedbackEl.classList.add("bad");
       }
-      if (current === questions.length - 1) {
+      if (current === roundQuestions.length - 1) {
+        progressFill.style.width = "100%";
+        progress.setAttribute("aria-valuenow", String(roundQuestions.length));
         showResults();
         return;
       }
@@ -597,9 +625,26 @@
       document.querySelector("#result-card").classList.toggle("celebrate", score >= 8);
       document.querySelector("#final-score").textContent = String(score);
       document.querySelector("#correct-count").textContent = String(score);
-      document.querySelector("#wrong-count").textContent = String(questions.length - score);
-      const result = score === 10
-        ? ["🏆", "우주 최고 탐험가!", "완벽한 점수예요! 우주의 모든 비밀을 꿰뚫고 있군요."]
+      document.querySelector("#wrong-count").textContent = String(roundQuestions.length - score);
+      document.querySelector("#result-total").textContent = String(roundQuestions.length);
+      const wrongReview = document.querySelector("#wrong-review");
+      const wrongQuestionsList = document.querySelector("#wrong-questions");
+      wrongQuestionsList.replaceChildren();
+      wrongQuestions.forEach(item => {
+        const question = document.createElement("li");
+        const prompt = document.createElement("p");
+        const answer = document.createElement("p");
+        const answerLabel = document.createElement("strong");
+        prompt.textContent = item.question;
+        answerLabel.textContent = `정답: ${item.choices[item.answer]}`;
+        answer.append(answerLabel);
+        question.append(prompt, answer);
+        wrongQuestionsList.append(question);
+      });
+      wrongReview.hidden = wrongQuestions.length === 0;
+      document.querySelector("#review-button").hidden = wrongQuestions.length === 0;
+      const result = score === roundQuestions.length
+        ? ["🏆", "우주 최고 탐험가!", "완벽한 점수예요! 이번 탐험에서 모든 문제를 맞혔어요."]
         : score >= 7
           ? ["🚀", "은하계 에이스!", "대단해요! 당신의 우주 지식은 별처럼 반짝이고 있어요."]
           : score >= 4
@@ -614,9 +659,9 @@
     nextButton.addEventListener("click", () => {
       if (!answered) return;
       current++;
-      if (current === questions.length) {
+      if (current === roundQuestions.length) {
         progressFill.style.width = "100%";
-        progress.setAttribute("aria-valuenow", "10");
+        progress.setAttribute("aria-valuenow", String(roundQuestions.length));
         showResults();
       } else {
         renderQuestion();
@@ -624,14 +669,29 @@
       }
     });
 
-    document.querySelector("#restart-button").addEventListener("click", () => {
+    function startQuiz(questionSet) {
+      roundQuestions = questionSet;
+      wrongQuestions = [];
       current = 0;
       score = 0;
       scoreEl.textContent = "0";
+      document.querySelector("#score-total").textContent = String(roundQuestions.length);
+      document.querySelector("#question-total").textContent = String(roundQuestions.length);
+      progress.setAttribute("aria-valuemax", String(roundQuestions.length));
+      progress.setAttribute("aria-valuenow", "0");
+      progressFill.style.width = "0%";
       document.querySelector("#result-card").hidden = true;
       document.querySelector("#quiz-card").hidden = false;
       renderQuestion();
       focusControl(questionEl);
+    }
+
+    document.querySelector("#restart-button").addEventListener("click", () => {
+      startQuiz(questions);
+    });
+
+    document.querySelector("#review-button").addEventListener("click", () => {
+      startQuiz(wrongQuestions.slice());
     });
 
     document.addEventListener("keydown", () => {
